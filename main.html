@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<!-- 
+	ship images
+		http://opengameart.org/content/space-ship-construction-kit
+		http://opengameart.org/content/space-ship-mech-construction-kit-2
+	background
+		http://vignette2.wikia.nocookie.net/sonicforhire/images/3/39/Space_Chicken_space_background.jpg/revision/latest?cb=20150725193452
+ -->
+
+<html>
+
+	<head>
+		<meta charset="utf-8" />
+		<title>Protótipo 1</title>
+		<style>
+			canvas {
+				border: 1px solid black;
+				background: url('img/background2.jpg');
+			}
+			body{
+				width: 500px;
+				margin: auto;
+			}
+		</style>
+		<script src="Player.js"></script>
+		<script src="Shot.js"></script>
+		<script src="Enemy1.js"></script>
+		<script src="Enemy2.js"></script>
+		<script src="Boss1.js"></script>
+	</head>
+	
+	<body>
+		<h1>Protótipo 1</h1>
+		<canvas width="498" height="450">
+			Seu navegador não tem suporte ao canvas!
+			Atualize seu navegador.
+		</canvas>
+		<script>
+			var tela = document.getElementsByTagName("canvas")[0];
+			var ctx = tela.getContext("2d");
+			var fps = 50;
+			var dt = 1/fps;
+			var totalWaves = 5;
+			var currentWave = 1;
+			var reiniciar = false;
+			var gameover = false;
+			var pc = new Player("img/shipPlayer.png");
+			pc.x = 249;
+			pc.y = 450;
+			var bg = new Image();
+			bg.src = "img/background2.jpg";
+			var bgo = 0;
+
+			var tempoTotal = 0;
+			var tiros = [];
+			var inimigos = [];
+			var excluirInimigos = [];
+			var excluirTiros = [];
+			var excluirTirosInimigos = [];
+
+			var waves=[
+				{tempo: 0, total: 4,  tipo:'esquerdaInclinado'},
+				{tempo: 12, total: 5,  tipo:'direitaHorizontal'},
+				{tempo: 25, total: 6,  tipo:'esquerdaHorizontal'},
+				{tempo: 35, total: 7,  tipo:'direitaInclinado'},
+				{tempo: 45, total: 7,  tipo:'esquerdaHorizontal'},
+				{tempo: 55, total: 8,  tipo:'esquerdaInclinado'},
+				{tempo: 60, total: 6,  tipo:'direitaInclinado'},
+				{tempo: 65, total: 9,  tipo:'direitaHorizontal'},
+				{tempo: 70, total: 6,  tipo:'direitaInclinado'},
+				{tempo: 73, total: 1, tipo:'boss'},
+			];
+
+			function criaInimigo(x, y, vx, vy, ax, ay, className, raioTiro, velocidadeTiro){
+				eval("var inimigo = new " + className + "()");
+				// var inimigo = new enemy1();
+				inimigo.x = x;
+				inimigo.y = y;
+				inimigo.ax = ax;
+				inimigo.ay = ay;
+				inimigo.vx = vx;
+				inimigo.vy = vy;
+				if(className != "Enemy2"){
+					inimigo.restricoes = function () {};
+					if(inimigo.y >= 0){
+						var primeiroTiro = new Shot("img/shot3.png");
+						primeiroTiro.x = x;
+						primeiroTiro.y = y;	
+						primeiroTiro.vy = velocidadeTiro;
+						primeiroTiro.raio = raioTiro;
+						inimigo.tiros.push(primeiroTiro);	
+					}
+				}else{
+					//fazer inimigo 2 ir em direção ao pc
+					inimigo.restricoes = function () {
+						inimigo.ax = 0.6*(pc.x-inimigo.x);
+					};
+				}
+
+				return inimigo;
+			}
+
+			function criaLeva(inimigos, total, tipo){
+				for (i = 0; i < total; i++) { 
+					switch(tipo){
+						case 'esquerdaHorizontal':
+							if(i % 2 == 0){
+								posY = -90 * Math.random();
+							}else{
+								posY = 0;
+							}
+							inimigos.push(criaInimigo(30+i*370/total, posY, 0, 250, 0, 0, "Enemy1", 8, 400));
+							break;
+						case 'esquerdaInclinado':
+							inimigos.push(criaInimigo(30+i*370/total, -i*370/total, 0, 250, 0, 0, "Enemy2", 8, 400));
+							break;
+						case 'direitaHorizontal':
+							if(i % 2 == 0){
+								posY = -90 * Math.random();
+							}else{
+								posY = 0;
+							}
+							inimigos.push(criaInimigo(tela.width-30-i*370/total, posY, 0, 250, 0, 0, "Enemy1", 8, 400));
+							break;
+						case 'direitaInclinado':
+							inimigos.push(criaInimigo(tela.width-30-i*370/total, -i*370/total, 0, 250, 0, 0, "Enemy2", 8, 400));
+							break;
+						case 'boss':
+							inimigos.push(criaInimigo(tela.width/2, -100, 0, 100, 0, 0, "Boss1", 8, 400));
+							break;
+					}
+				}
+			}
+
+			function passo(){
+
+				tempoTotal += dt;
+				if(pc.health > 0 && (waves[0] || inimigos.length > 0)){
+					if( waves[0] && ( (waves[0].tempo<tempoTotal) || (inimigos.length == 0) )){
+						criaLeva(inimigos, waves[0].total, waves[0].tipo);
+						waves.splice(0,1);
+					}
+
+					pc.mover();
+
+					for (var i in inimigos) {
+						inimigos[i].mover();
+					}
+
+					for (var i in tiros) {
+						tiros[i].mover();
+					}
+
+					pc.restricoes();
+
+					for (var i in inimigos) {
+						inimigos[i].restricoes();
+					}
+
+					for (var i in tiros) {
+						tiros[i].restricoes();
+					}
+
+					//Limpar a tela
+		 			//ctx.clearRect(0,0, tela.width, tela.height);
+		 			if(bgo>=tela.height){
+		 				bgo=0;
+		 			}
+		 			ctx.drawImage(bg, 0,0,2208,1242, 0,0+bgo, tela.width, tela.height);
+		 			ctx.drawImage(bg, 0,0,2208,1242, 0,0+bgo-tela.height, tela.width, tela.height);
+		 			bgo += 100*dt;
+
+		 			ctx.fillStyle="##6050dc";
+					ctx.fillRect(35,3,(pc.health/30)*140,15);
+					ctx.fillStyle = "white";
+				    ctx.font = "10pt sans-serif";
+				    ctx.fillText("Life", 5, 15);
+
+				    ctx.fillStyle="##6050dc";
+					ctx.fillRect(35,3,(pc.health/30)*140,15);
+					ctx.fillStyle = "white";
+				    ctx.font = "10pt sans-serif";
+				    ctx.fillText("Score: "+pc.score, 5, 35);
+
+		 			for (var i in inimigos) {
+						inimigos[i].desenhar();
+					}
+
+					for (var i in tiros) {
+						tiros[i].desenhar();
+					}
+
+					pc.desenhar();
+
+					for (var i in inimigos) {
+						//colidiu player com inimigo e player não está invulnerável
+						if(pc.invulneravel<=0 && pc.colidiuComCircular(inimigos[i])){
+							pc.invulneravel = 2;
+							inimigos[i].y = 1200;
+							pc.health -= inimigos[i].danoColidiu;
+							if(pc.health > 0){
+								pc.score += inimigos[i].pontos;
+							}
+						}
+
+						//verifica se algum tiro do player colidiu com o inimigo
+						for (var y in tiros) {
+							if(tiros[y].colidiuComCircular(inimigos[i])){
+								inimigos[i].gotDamage(20);
+								// inimigos[i].health -= 20;
+								if(inimigos[i].health <= 0){
+									inimigos[i].y = 1200;
+									pc.score += inimigos[i].pontos;
+								}
+								tiros[y].y = -1200;								
+							}
+							if(tiros[y].y < -10){
+								excluirTiros.push(tiros[y]);
+							}
+						}
+
+						//adiciona inimigos que não estão mais na tela no vetor para ser removido
+						if(inimigos[i].y>tela.height+15){
+							excluirInimigos.push(inimigos[i]);
+						}
+
+						//verifica se algum tiro do inimigo colidiu com o player
+						for(w in inimigos[i].tiros){
+							if(pc.invulneravel<=0 && inimigos[i].tiros[w].colidiuComCircular(pc)){
+								pc.invulneravel = 2;
+								inimigos[i].tiros[w].y = -1200;
+								pc.health -= 10;
+								excluirTirosInimigos.push(inimigos[i].tiros[w]);
+							}
+							if(inimigos[i].tiros[w].y > tela.height + 15){
+								excluirTirosInimigos.push(inimigos[i].tiros[w]);
+							}
+						}
+
+						//remove tiros dos inimigos que colidiram com o player
+						for(var e in excluirTirosInimigos){
+							inimigos[i].tiros.splice(inimigos[i].tiros.indexOf(excluirTirosInimigos[e]),1);
+						}
+
+						//remove tiros do player que colidiram com o inimigo ou sairam da tela
+						for(var e in excluirTiros){
+							tiros.splice(tiros.indexOf(excluirTiros[e]),1);
+						}
+						excluirTiros = [];
+						excluirTirosInimigos = [];
+					}
+					for(var e in excluirInimigos){
+						inimigos.splice(inimigos.indexOf(excluirInimigos[e]),1);
+					}
+					
+					excluirInimigos = [];
+					excluirTiros = [];
+				}else if(pc.health <= 0){
+					gameover = true;
+
+					ctx.clearRect(0,0,tela.width,tela.height);
+		            ctx.font="54px Helvetica";
+		            ctx.fillStyle="red";
+		            ctx.fillText("GAME OVER", 80,tela.height/2 - 20);
+		            ctx.font="34px Helvetica";
+		            ctx.fillText("Score: " + pc.score, tela.width/2 - 65,tela.height/2 + 20);
+		          	
+		            ctx.font="12px Helvetica";
+		            ctx.fillText("press 'ENTER' to restart",4,tela.height-14);
+
+		            if(reiniciar){
+		            	gameover = false;
+		           		reiniciar = false;
+		            	location.reload();
+		            }
+				}
+				else{
+					gameover = true;
+
+					ctx.clearRect(0,0,tela.width,tela.height);
+		            ctx.font="54px Helvetica";
+		            ctx.fillStyle="red";
+		            ctx.fillText("WINNER", tela.width/2 - 100,tela.height/2 - 20);
+		            ctx.font="34px Helvetica";
+		            ctx.fillText("Score: " + pc.score, tela.width/2 - 65,tela.height/2 + 20);
+		          	
+		            ctx.font="12px Helvetica";
+		            ctx.fillText("press 'ENTER' to restart",4,tela.height-14);
+
+		            if(reiniciar){
+		            	gameover = false;
+		           		reiniciar = false;
+		            	location.reload();
+		            }
+				}
+				
+
+			}
+
+			function teclaPressionada(e){
+				switch(e.keyCode){
+					case 13:
+						if(gameover){
+							reiniciar = true;
+						}
+					break;
+					case 32:
+						tiro = new Shot("img/tiros.png");
+						tiro.x = pc.x;
+						tiro.y = pc.y;	
+						tiro.vy = -200;
+						tiros.push(tiro);
+					break;
+					case 37:
+						pc.vx = -200;					
+					break;
+					case 39:
+						pc.vx = 200;					
+					break;
+					case 38:
+						pc.vy = -200;					
+					break;
+					case 40:
+						pc.vy = 200;					
+					break;
+				}
+
+			}
+
+			function teclaSolta(e){
+				switch(e.keyCode){
+					case 37:
+					case 39:
+						pc.vx = 0;					
+					break;
+					case 38:
+					case 40:
+						pc.vy = 0;					
+					break;
+				}
+			}
+
+			setInterval(passo, 1000/fps);
+			addEventListener("keydown", teclaPressionada);
+			addEventListener("keyup", teclaSolta);
+
+		</script>
+	</body>
+</html>
